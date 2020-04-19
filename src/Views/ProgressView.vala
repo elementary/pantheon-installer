@@ -117,9 +117,8 @@ public class ProgressView : AbstractInstallerView {
         installer.on_status (installation_status_callback);
 
         var config = Distinst.Config ();
-        config.flags = Distinst.MODIFY_BOOT_ORDER;
+        config.flags = Distinst.MODIFY_BOOT_ORDER | Distinst.INSTALL_HARDWARE_SUPPORT;
         config.hostname = "elementary-os";
-        config.lang = "en_US.UTF-8";
 
         var casper = casper_dir ();
         config.remove = GLib.Path.build_filename (casper, "filesystem.manifest-remove");
@@ -127,13 +126,8 @@ public class ProgressView : AbstractInstallerView {
 
         unowned Configuration current_config = Configuration.get_default ();
 
-        //TODO: Use the following
-        debug ("language: %s\n", current_config.lang);
-        if (current_config.country != null) {
-            debug ("country: %s\n", current_config.country);
-        } else {
-            config.lang = current_config.lang + "_" + current_config.lang.ascii_up () + ".UTF-8";
-        }
+        stderr.printf ("locale: %s\n", current_config.get_locale ());
+        config.lang = current_config.get_locale ();
 
         config.keyboard_layout = current_config.keyboard_layout;
         config.keyboard_model = null;
