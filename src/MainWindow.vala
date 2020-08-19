@@ -1,6 +1,6 @@
 // -*- Mode: vala; indent-tabs-mode: nil; tab-width: 4 -*-
 /*-
- * Copyright (c) 2016-2017 elementary LLC. (https://elementary.io)
+ * Copyright (c) 2016–2018 elementary LLC. (https://elementary.io)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@ public class Installer.MainWindow : Gtk.Window {
     private SuccessView success_view;
     private EncryptView encrypt_view;
     private ErrorView error_view;
-    private bool check_ignored = false;
 
     private uint64 minimum_disk_size;
 
@@ -95,65 +94,39 @@ public class Installer.MainWindow : Gtk.Window {
         stack.add (try_install_view);
         stack.visible_child = try_install_view;
 
-        try_install_view.custom_step.connect (() => load_partitioning_view ());
-        try_install_view.next_step.connect (() => load_disk_view ());
+        try_install_view.custom_step.connect (() => {
+            load_check_view ("custom");
+        });
+
+        try_install_view.next_step.connect (() => {
+            load_check_view ("clean");
+        });
     }
 
-    private void set_check_view_visible (bool show) {
-        if (show) {
-            check_view.previous_view = stack.visible_child;
-            stack.visible_child = check_view;
-        } else if (check_view.previous_view != null) {
-            stack.visible_child = check_view.previous_view;
-            check_view.previous_view = null;
-        }
-    }
-
-    private void load_check_view () {
+    private void load_check_view (string next_view) {
         if (check_view != null) {
             check_view.destroy ();
         }
 
-        check_view = new Installer.CheckView (minimum_disk_size);
-        stack.add (check_view);
+        check_view = new CheckView (minimum_disk_size);
+        check_view.previous_view = try_install_view;
 
-        check_view.status_changed.connect ((met_requirements) => {
-            if (!check_ignored) {
-                set_check_view_visible (!met_requirements);
-            }
-        });
+        if (next_view == "custom") {
+            check_view.next_step.connect (() => load_partitioning_view ());
+        } else {
+            check_view.next_step.connect (() => load_disk_view ());
+        }
+
+        if (check_view.check_requirements ()) {
+            check_view.next_step ();
+        } else {
+            stack.add (check_view);
+            stack.visible_child = check_view;
+        }
 
         check_view.cancel.connect (() => {
             stack.visible_child = try_install_view;
-            check_view.previous_view = null;
-            check_view.destroy ();
         });
-
-        check_view.next_step.connect (() => {
-            check_ignored = true;
-            set_check_view_visible (false);
-        });
-
-        set_check_view_visible (!check_ignored && !check_view.check_requirements ());
-    }
-
-    private void load_encrypt_view () {
-        if (encrypt_view != null) {
-            encrypt_view.destroy ();
-        }
-
-        encrypt_view = new EncryptView ();
-        encrypt_view.previous_view = disk_view;
-        stack.add (encrypt_view);
-        stack.visible_child = encrypt_view;
-
-        load_check_view ();
-
-        encrypt_view.cancel.connect (() => {
-            stack.visible_child = try_install_view;
-        });
-
-        encrypt_view.next_step.connect (() => load_progress_view ());
     }
 
     private void load_disk_view () {
@@ -190,6 +163,23 @@ public class Installer.MainWindow : Gtk.Window {
             config.mounts = (owned) partitioning_view.mounts;
             load_progress_view ();
         });
+    }
+
+    private void load_encrypt_view () {
+        if (encrypt_view != null) {
+            encrypt_view.destroy ();
+        }
+
+        encrypt_view = new EncryptView ();
+        encrypt_view.previous_view = disk_view;
+        stack.add (encrypt_view);
+        stack.visible_child = encrypt_view;
+
+        encrypt_view.cancel.connect (() => {
+            stack.visible_child = try_install_view;
+        });
+
+        encrypt_view.next_step.connect (() => load_progress_view ());
     }
 
     private void load_progress_view () {
@@ -231,3 +221,4 @@ public class Installer.MainWindow : Gtk.Window {
         error_view.previous_view = disk_view;
     }
 }
+
